@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
         }
 
         char *text = argv[1];
-        
+        printf("__*_");
         // Iterate through each character. The last character does not include the three time unit separator
         for (i = 1; text[i] != '\0'; i++) {
                 p_encode(text[i - 1]);
