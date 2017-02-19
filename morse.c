@@ -28,19 +28,17 @@ int main(int argc, char *argv[]) {
                 p_encode(text[i - 1]);
                 printf("___");
         }
-
         p_encode(text[i - 1]);
         printf("\n");
         return 0;
 }
-
 void p_encode(char c) 
 {
         unsigned int binary = 0b0;        // Binary Morse translation of char
 
-        // Space is a special case: translation is four Morse time units (in addition to the standard separator of three)
+        // Space is a special case: translation is one Morse time unit (in addition to the standard separator of three on both sides)
         if (c == ' ') {
-                printf("____");
+                printf("_");
         } else {
                 binary = morse[(int)c];
                 while (binary != 0b0) {   // Read each bit, adding '*' for 1 and '_' for 0
