@@ -9,30 +9,47 @@
 #include <stdio.h>
 #include "encoding.h"
 
-void p_encode(char c);   // Translates a character to the appropriate morse string and prints it
+void p_encode(char c, unsigned char *sum);   // Translates a character to the appropriate morse string and prints it. Tracks checksum
 
 int main(int argc, char *argv[]) {
         
-        int i = 0;      // String index 
+        int i = 0;                       // String index 
+        unsigned char checksum = 0;       // Checksum of 'high' Morse time units
 
         // Expecting one argument (which will be interpreted as a string)
         if (argc != 2) {
                 printf("Error: a single string as an argument\n");
                 return 1;
         }
-
+        
+        // Copy string argument
         char *text = argv[1];
+
+        // Preamble
         printf("__*_");
+        checksum++;
+
         // Iterate through each character. The last character does not include the three time unit separator
         for (i = 1; text[i] != '\0'; i++) {
-                p_encode(text[i - 1]);
+                p_encode(text[i - 1], &checksum);
                 printf("___");
         }
-        p_encode(text[i - 1]);
+        p_encode(text[i - 1], &checksum);
+
+        // Print checksum
+        printf("_");            // Separating 0
+        checksum = ~checksum;   // One's complement
+        while (checksum != 0b0) {
+                if (checksum & 0b1)
+                        printf("*");
+                else 
+                        printf("_");
+                checksum >>= 1;
+        }
         printf("\n");
         return 0;
 }
-void p_encode(char c) 
+void p_encode(char c, unsigned char *sum) 
 {
         unsigned int binary = 0b0;        // Binary Morse translation of char
 
@@ -42,10 +59,12 @@ void p_encode(char c)
         } else {
                 binary = morse[(int)c];
                 while (binary != 0b0) {   // Read each bit, adding '*' for 1 and '_' for 0
-                        if (binary & 0b1)
+                        if (binary & 0b1) {
                                 printf("*");
-                        else
+                                (*sum)++;
+                        } else {
                                 printf("_");
+                        }
                         binary >>= 1;
                 }
         }
