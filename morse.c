@@ -8,21 +8,28 @@
 
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include "encoding.h"
 
 #define HIGH 1
 #define LOW 0
+#define PHASE_ZERO  0           // 0 radian phase
+#define PHASE_PI  1             // pi radian phase
+#define MORSE_UNIT 500000       // Morse time unit in usec (1/2 a second)
 
 int GPIO_open(int pin);                      // Open pin 'pin' for output
 int GPIO_close(int pin);                     // Close pin 'pin'
 int GPIO_write(int pin, int val);            // Write "value" to pin
-void p_encode(char c, unsigned char *sum);   // Translates a character to the appropriate morse string and prints it. Tracks checksum
+void p_encode(char c, unsigned char *sum, int *phase);    // Translates a character to the appropriate morse string and prints it. Tracks checksum
+void print_bpsk(char *morse, int *phase);     // Prints the input morse text (a combination of '*' and '_') to the screen while controlling the GPIO pins 4 & 17
+int cycle(int phase);                         // Performs one cycle on GPIO pin 17, with period MORSE_UNIT*2 and the given phase
 
 int main(int argc, char *argv[]) {
         
         int i = 0;                        // String index 
         unsigned char checksum = 0;       // Checksum of 'high' Morse time units
+        int phase = PHASE_ZERO;           // Start at zero phase
 
         // Expecting one argument (which will be interpreted as a string)
         if (argc != 2) {
@@ -43,36 +50,38 @@ int main(int argc, char *argv[]) {
         // Copy string argument
         char *text = argv[1];
 
+        // Begin with GPIO 17 low, and enable high. Lower enable one cycle in
+        GPIO_write(4, 1);
+        GPIO_write(17, 0);
+        GPIO_write(4, 0);
+        usleep(MORSE_UNIT * 2);  // Sleep for a full cycle
+
         // Preamble
-        printf("__*_");
+        print_bpsk("__*_", &phase);
         checksum++;
 
         // Iterate through each character. The last character does not include the three time unit separator
         for (i = 1; text[i] != '\0'; i++) {
-                p_encode(text[i - 1], &checksum);
-                printf("___");
+                p_encode(text[i - 1], &checksum, &phase);
+                print_bpsk("___", &phase);
         }
-        p_encode(text[i - 1], &checksum);
+        p_encode(text[i - 1], &checksum, &phase);
         
         // Print checksum
-        printf("_");            // Separating 0
+        print_bpsk("_", &phase);        // Separating 0
         checksum = ~checksum;   // One's complement
         while (checksum != 0b0) {
                 if (checksum & 0b1)
-                        printf("*");
+                        print_bpsk("*", &phase);
                 else 
-                        printf("_");
+                        print_bpsk("_", &phase);
                 checksum >>= 1;
         }
         printf("\n");
         
-        GPIO_write(4, 1);
-        GPIO_write(17,1);
-
-        usleep(1000 * 1000 * 10);
-        
-        GPIO_write(4, 0);
         GPIO_write(17, 0);
+        usleep(MORSE_UNIT * 2);
+        GPIO_write(4, 1);
 
         // Close GPIO pins
         if (GPIO_close(4)) {
@@ -119,7 +128,6 @@ int GPIO_open(int pin)
                 return 3;
         }       
         close(file);
-        usleep(500);    // Brief delay for adjustment
         return 0;
 }
 
@@ -138,7 +146,6 @@ int GPIO_close(int pin)
         size = snprintf(buf, 3, "%d", pin); // Write GPIO pin to close to file
         write(file, buf, size);
         close(file);
-        usleep(500);    // Brief delay for adjustment
         return 0;      
 }
 
@@ -163,24 +170,60 @@ int GPIO_write(int pin, int value)
         return 0;
 }
 
-void p_encode(char c, unsigned char *sum) 
+void p_encode(char c, unsigned char *sum, int *phase) 
 {
         unsigned int binary = 0b0;        // Binary Morse translation of char
 
         // Space is a special case: translation is one Morse time unit (in addition to the standard separator of three on both sides)
         if (c == ' ') {
-                printf("_");
+                print_bpsk("_", phase);
         } else {
                 binary = morse[(int)c];
                 while (binary != 0b0) {   // Read each bit, adding '*' for 1 and '_' for 0
                         if (binary & 0b1) {
-                                printf("*");
+                                print_bpsk("*", phase);
                                 (*sum)++;
                         } else {
-                                printf("_");
+                                print_bpsk("_", phase);
                         }
                         binary >>= 1;
                 }
         }
         return;
+}
+
+void print_bpsk(char *morse, int *phase)
+{
+        char *c;         // Current character being analyzed
+
+        for (c = &morse[0]; *c != '\0'; c++) {
+                printf("%c", *c);       // Print character
+                if (*c == '_') {        // On a '_', cycle GPIO 17 with the same phase
+                        cycle(*phase); 
+                } else if (*c == '*') { // On a '*', shift the phase, then cycle GPIO 17
+                        *phase = !(*phase);
+                        cycle(*phase);
+                }
+        }
+
+}
+
+int cycle(int phase)
+{
+        if (phase == PHASE_ZERO) {
+                GPIO_write(17, 0);
+                usleep(MORSE_UNIT);
+                GPIO_write(17, 1);
+                usleep(MORSE_UNIT);
+                return 0;
+        } else if (phase == PHASE_PI) {
+                GPIO_write(17, 1);
+                usleep(MORSE_UNIT);
+                GPIO_write(17, 0);
+                usleep(MORSE_UNIT);
+                return 0;
+        } else {
+                printf("Warning: failed to cycle GPIO pin 17 ... \n");
+                return 1;
+        }
 }
