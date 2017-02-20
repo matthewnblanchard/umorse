@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
                 printf("___");
         }
         p_encode(text[i - 1], &checksum);
-
+        
         // Print checksum
         printf("_");            // Separating 0
         checksum = ~checksum;   // One's complement
@@ -65,6 +65,25 @@ int main(int argc, char *argv[]) {
                 checksum >>= 1;
         }
         printf("\n");
+        
+        GPIO_write(4, 1);
+        GPIO_write(17,1);
+
+        usleep(1000 * 1000 * 10);
+        
+        GPIO_write(4, 0);
+        GPIO_write(17, 0);
+
+        // Close GPIO pins
+        if (GPIO_close(4)) {
+                printf("Error: Could not close GPIO pin 4 ...\n");
+                return 3;
+        }
+        if (GPIO_close(17)) {
+                printf("Error: Could not close GPIO pin 17 ...\n");
+                return 3;
+        }
+
         return 0;
 }
 
@@ -81,10 +100,11 @@ int GPIO_open(int pin)
                 printf("Failed to open GPIO export\n");
                 return 1;
         }
-
         size = snprintf(buf, 3, "%d", pin);   // Write GPIO pin to open to file
         write(file, buf, size);               
         close(file);                          // Close export file
+
+        usleep(50000);    // Brief delay for adjustment
 
         // Set GPIO pin direction
         snprintf(dir_path, 35, "/sys/class/gpio/gpio%d/direction", pin);
@@ -99,7 +119,7 @@ int GPIO_open(int pin)
                 return 3;
         }       
         close(file);
-
+        usleep(500);    // Brief delay for adjustment
         return 0;
 }
 
@@ -118,6 +138,7 @@ int GPIO_close(int pin)
         size = snprintf(buf, 3, "%d", pin); // Write GPIO pin to close to file
         write(file, buf, size);
         close(file);
+        usleep(500);    // Brief delay for adjustment
         return 0;      
 }
 
