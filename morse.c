@@ -18,12 +18,12 @@
 #define PHASE_PI  1             // pi radian phase
 #define MORSE_UNIT 500000       // Morse time unit in usec (1/2 a second)
 
-int GPIO_open(int pin);                      // Open pin 'pin' for output
-int GPIO_close(int pin);                     // Close pin 'pin'
-int GPIO_write(int pin, int val);            // Write "value" to pin
+int GPIO_open(int pin);                          // Open pin 'pin' for output
+int GPIO_close(int pin);                         // Close pin 'pin'
+int GPIO_write(int pin, int val);                // Write "value" to pin
 void p_encode(char c, unsigned char *sum, int *phase);    // Translates a character to the appropriate morse string and prints it. Tracks checksum
-void print_bpsk(char *morse, int *phase);     // Prints the input morse text (a combination of '*' and '_') to the screen while controlling the GPIO pins 4 & 17
-int cycle(int phase);                         // Performs one cycle on GPIO pin 17, with period MORSE_UNIT*2 and the given phase
+void print_bpsk(char *morse, int *phase);        // Prints the input morse text (a combination of '*' and '_') to the screen while controlling the GPIO pins 4 & 17
+int cycle(int phase);                            // Performs one cycle on GPIO pin 17, with period MORSE_UNIT*2 and the given phase
 
 int main(int argc, char *argv[]) {
         
@@ -50,8 +50,7 @@ int main(int argc, char *argv[]) {
         // Copy string argument
         char *text = argv[1];
 
-        // Begin with GPIO 17 low, and enable high. Lower enable one cycle in
-        GPIO_write(4, 1);
+        // Bring enable low one full cycle before transmission
         GPIO_write(17, 0);
         GPIO_write(4, 0);
         usleep(MORSE_UNIT * 2);  // Sleep for a full cycle
@@ -69,7 +68,7 @@ int main(int argc, char *argv[]) {
         
         // Print checksum
         print_bpsk("_", &phase);        // Separating 0
-        checksum = ~checksum;   // One's complement
+        checksum = ~checksum;           // One's complement
         while (checksum != 0b0) {
                 if (checksum & 0b1)
                         print_bpsk("*", &phase);
@@ -79,6 +78,7 @@ int main(int argc, char *argv[]) {
         }
         printf("\n");
         
+        // Bring enable high again one full cycle after transmission
         GPIO_write(17, 0);
         usleep(MORSE_UNIT * 2);
         GPIO_write(4, 1);
